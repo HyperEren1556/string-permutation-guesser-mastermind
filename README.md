@@ -22,7 +22,7 @@ It supports both **player-provided secrets** and **automatically generated rando
 ## Requirements
 
 - Python 3.7+
-- Standard libraries only: `random`, `math`, `string`, `bisect`, `time`, `collections`
+- Standard libraries only: `random`, `math`, `string`, `bisect`, `time`, `collections`, `itertools`
 
 No additional packages are required.
 
