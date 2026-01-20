@@ -4,6 +4,7 @@ import string
 import bisect
 import time
 from collections import Counter
+import itertools
 
 # -------------------------------------------
 # Generate a random string from a given charset
@@ -20,6 +21,9 @@ def generate_random_string(length, nletter=None, custom_charset=None):
 
     return ''.join(random.choice(charset) for _ in range(length))
 
+def generate_string_without_duplicates(nletter=10):
+    charset = string.ascii_uppercase[:nletter]
+    return random.shuffle(charset)
 
 # -------------------------------------------
 # Feedback function: counts exact matches in position
@@ -29,6 +33,7 @@ def get_feedback(secret, guess):
     guess = str(guess)
     correct_place = sum(s == g for s, g in zip(secret, guess))
     return correct_place
+
 
 
 # Alias using list comprehension for clarity
@@ -59,6 +64,49 @@ def insert_custom(lst, item):
     i = bisect.bisect_left(keys, k)
     lst.insert(i, item)
     return lst
+
+def eliminate_possibilities(possibilities, guess, feedback):
+    remaining_possibilities = []
+    for num in possibilities:
+        if get_feedback(num, guess) == feedback:
+            remaining_possibilities.append(num)
+    return remaining_possibilities
+
+import random
+import itertools
+
+def guess_string(secret, charset, length, nletter, playing):
+    """
+    Guess a secret string composed of characters from `charset`.
+
+    secret: str, the string to guess
+    charset: iterable of characters to use
+    length: int, length of the secret
+    """
+    # Generate all possible strings of given length from charset
+    possibilities = [''.join(p) for p in itertools.product(charset, repeat=length)]
+    attempts = 1
+
+    while possibilities:
+        # Random guess from remaining possibilities
+        Player1_guess = random.choice(possibilities)
+        Player2_feedback = get_feedback(secret, Player1_guess)
+
+        print(f"Player1_guess: {Player1_guess} Player2_feedback: {Player2_feedback}")
+
+        # Success check
+        if Player2_feedback == length:
+            print(f"I've guessed your string '{Player1_guess}' correctly in {attempts} attempts!")
+            return True
+
+        # Eliminate impossible candidates based on feedback
+        possibilities = [p for p in possibilities if get_feedback(p, Player1_guess) == Player2_feedback]
+
+        attempts += 1
+
+    # Should not reach here if secret is in charset^length
+    print("Failed to guess the secret.")
+    return False
 
 
 # -------------------------------------------
@@ -127,19 +175,17 @@ def unique_permutations(iterable, parameters, secret, attempts):
 # -------------------------------------------
 # Main logic to generate initial guesses, correct characters, and run permutation search
 # -------------------------------------------
-def Dump_code(secret, length=10, nletter=10, playing=False):
+def Dump_code(secret, charset, length=10, nletter=10, playing=False):
     parameters = []
     attempts = 0
     correct_chars = []
 
-    # Determine charset
-    if not playing:
-        charset = string.ascii_uppercase[:nletter]
-    else:
-        charset = "".join(dict.fromkeys(secret))  # Remove duplicates from secret
+
 
     # Initial guesses to identify correct characters
-    for c in charset:
+    charset_list = list(charset)
+    random.shuffle(charset_list)
+    for c in charset_list:
         Player1_guess = c * length
         Player2_feedback = get_feedback(secret, Player1_guess)
         print(f"Player1_guess: {Player1_guess} Player2_feedback: {Player2_feedback}")
@@ -147,12 +193,13 @@ def Dump_code(secret, length=10, nletter=10, playing=False):
         attempts += 1
         if len(correct_chars) == length:
             break
-        if len(correct_chars) < length and c == charset[-2]:
-            correct_chars.extend([charset[-1]] * (length - len(correct_chars)))
+        if len(correct_chars) < length and c == charset_list[-2]:
+            correct_chars.extend([charset_list[-1]] * (length - len(correct_chars)))
             break
-
     print("Attempts:", attempts)
     print("Permutation candidates:", correct_chars)
+
+        
 
     # Estimate number of permutations and processing time
     permutations_count = count_unique_permutations(correct_chars)
@@ -214,22 +261,46 @@ def main():
             while True:
                 secret = input(f"Type your secret ({length} characters): ").strip()
                 if len(secret) == length:
+                    nletter = len(secret)
+                    # Determine charset
+                    charset = "".join(dict.fromkeys(secret))  # Remove duplicates from secret
                     break
                 print(f"Secret must be exactly {length} characters long.")
+
         # Random secret
         else:
             while True:
                 try:
                     nletter = int(input("How many letters to use (1-26)? "))
+                    # Determine charset
+                    charset = string.ascii_uppercase[:nletter]
                     if 1 <= nletter <= 26:
                         break
                 except ValueError:
                     print("Value error")
-            secret = generate_random_string(length, nletter)
+            while True:
+                allow_duplicates = input("allow duplicates? (y/n): ").strip().lower()
+                if allow_duplicates in ["yes", "y"]:
+                    secret = generate_random_string(length, nletter)
+                    break
+                elif allow_duplicates in ["no", "n"]:
+                    secret = generate_random_string(length, nletter)
+                    break
+                else:
+                    print("Please enter 'yes' or 'no'.")
+
+            
+    
+
 
         print(f"(Secret generated: {secret})")  # Optional reveal
-        Dump_code(secret, length, nletter, playing)
-
+        if length > 7:
+            Dump_code(secret, charset, length, nletter, playing)
+        else:
+            start = time.perf_counter()
+            guess_string(secret, charset, length, nletter, playing)
+            end = time.perf_counter()
+            print(f"Execution time: {end - start:.6f} seconds")
         # Ask to play again
         while True:
             again = input("Do you want to play again? (y/n): ").strip().lower()
